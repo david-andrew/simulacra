@@ -11,6 +11,7 @@ from time import sleep
 #       - needs like food, water, shelter, etc
 #       - wants like entertainment, education, etc
 #       - skills like hunting, farming, etc ---> this may turn into an efficiency score
+#       - voting? other forms of social interaction?
 #       - efficiency score + goal oriented action planning may be used to determine what the agent does
 
 

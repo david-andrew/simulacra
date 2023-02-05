@@ -1,0 +1,2 @@
+# Simulacra
+video game character/world simulation. Eventually this will be used to simulate the behaviors of all NPC characters to a very high fidelity. The goal is for the simulation to be a believable and realistic representation of how people would behave in various possible situations.
