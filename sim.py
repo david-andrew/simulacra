@@ -3,6 +3,16 @@ import numpy as np
 from time import sleep
 
 
+# TODO:
+# - consider rewriting in rust
+# - types of economies to simulate:
+#    -> start off with small communal villages
+#    -> simulate at the individual level
+#       - needs like food, water, shelter, etc
+#       - wants like entertainment, education, etc
+#       - skills like hunting, farming, etc ---> this may turn into an efficiency score
+#       - efficiency score + goal oriented action planning may be used to determine what the agent does
+
 
 class Screen:
     def __init__(self, width=80, height=40, charmap=np.array([' ', '@'], dtype='<U1'), delay=0.1):
