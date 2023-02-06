@@ -5,6 +5,7 @@ use std::{io::{self, Write}, thread::sleep, time::Duration};
 
 // TODO:
 // - move screen into separate file
+// - convert things like randn and sleep into closures/functions that are easier to call
 // - types of economies to simulate:
 //    -> start off with small communal villages
 //    -> simulate at the individual level
@@ -13,6 +14,8 @@ use std::{io::{self, Write}, thread::sleep, time::Duration};
 //       - skills like hunting, farming, etc ---> this may turn into an efficiency score
 //       - voting? other forms of social interaction?
 //       - efficiency score + goal oriented action planning may be used to determine what the agent does
+//       - agent health/injuries/etc. 
+//          -> for injuries, maybe have a human armature that models the workspace the agent can reach, and update that based on injuries
 
 // recreate actor class from python version
 /*
