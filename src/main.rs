@@ -1,6 +1,49 @@
 use rand_distr::{Normal, Distribution, num_traits::clamp};
 use std::{io::{self, Write}, thread::sleep, time::Duration};
 
+
+
+// TODO:
+// - move screen into separate file
+// - types of economies to simulate:
+//    -> start off with small communal villages
+//    -> simulate at the individual level
+//       - needs like food, water, shelter, etc
+//       - wants like entertainment, education, etc
+//       - skills like hunting, farming, etc ---> this may turn into an efficiency score
+//       - voting? other forms of social interaction?
+//       - efficiency score + goal oriented action planning may be used to determine what the agent does
+
+// recreate actor class from python version
+/*
+class Actor(ABC):
+    @abstractmethod
+    def step(self): ...
+    def render(self, screen:Screen): ... #TBD what how this works...
+
+class Person(Actor):
+    def __init__(self):
+        self.x = 10
+        self.y = 10
+
+    def step(self):
+        #for now, just move in a random direction
+        dx = np.random.randn()
+        dy = np.random.randn()
+
+        self.x += dx
+        self.y += dy
+        
+        #clamp to area
+        self.x = np.clip(self.x, 0, 80)
+        self.y = np.clip(self.y, 0, 80)
+
+    def render(self, screen:Screen):
+        screen.draw_at("@", int(self.x), int(self.y))
+*/
+
+
+
 // screen for now will be drawn in a terminal window with ascii characters
 struct TTYScreen {
     width: u32,
