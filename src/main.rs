@@ -53,10 +53,20 @@ struct TTYScreen {
 
 impl TTYScreen {
     fn new(width: u32, height: u32) -> TTYScreen {
+        
+        //create the data vector
         let mut data = Vec::new();
         for _ in 0..width * height {
             data.push(' ');
         }
+        
+        //predraw the space for the screen, then return to the top left
+        for _ in 0..height-1 {
+            println!("")
+        }
+        print!("\x1b[0;0H");
+        
+        //return a new TTYScreen
         TTYScreen {
             width: width,
             height: height,
