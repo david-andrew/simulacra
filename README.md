@@ -42,4 +42,6 @@ $ cargo run
     - [ ] actors can transfer knowledge to other actors (depending on things like trust, deception, plausibility, confirmation bias match, etc.)
     - [ ] GOAP makes use of knowledge. should have probabilistic approach for when knowledge conflicts?
 ## Display Features
-- [x] 2D ascii terminal display
+- [ ] 2D ascii terminal display
+    - [x] simple text grid
+    - [ ] color
