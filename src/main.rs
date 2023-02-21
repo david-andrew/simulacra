@@ -2,6 +2,77 @@ use rand_distr::{Normal, Distribution, num_traits::clamp};
 use std::{io::{self, Write}, thread::sleep, time::Duration};
 
 
+/*
+User stories:
+- character A is hungry, so they pick a fruit from a tree and eat it
+    -> plants that grow and produce fruit
+
+- character A is tired, so they go to shelter and sleep
+    -> shelter owned by or provided to or found by character A
+
+- character A has harvested some wheat, and goes to a market to trade for other goods
+    -> plants grow and produce wheat
+    -> other characters that have other goods
+    -> ability for characters to negotiate and trade based on their needs and wants
+
+- character A is tending sheep, and must protect them from wolves
+    -> sheep are animal agents
+    -> wolves are animal agents
+
+<stealing>
+
+<delegating tasks>
+
+<hierarchical and non-hierarchical collaboration structures>
+
+<knowledge chains/information propagation + mutation>
+
+<lying, deception, information withholding>
+
+<trust>!!!!!! super big one . The evolution of trust: https://ncase.me/trust/
+
+
+
+- kingdom A wants to trade its wheat for kingdom B's meat
+   -> kingdoms need to direct individuals to collect/pool the resources
+   -> kingdoms then need to direct individuals to transport the resources to the other kingdom
+   -> kingdoms then need to verify that the trade occurred successfully
+
+
+breakdown of the interface:
+struct Environment:
+    - vector<agents>: all actors in the environment
+    - world: the world the agents are in, including non-agent entities
+
+struct Agent:
+    - type (human, animal, plant, etc)
+    - position
+    - state. e.g. for humans https://en.wikipedia.org/wiki/Maslow%27s_hierarchy_of_needs
+trait Agent
+    - act()
+
+World:
+    - map/environments
+    - weather-> is this maybe an agent?
+    - resources (non-agent)
+    - time
+
+
+- Screen:
+    - view of the world
+    - controls for looking around
+
+
+- User controlled agents:
+   - mainly for debugging
+
+*/
+
+
+
+
+
+
 
 // TODO:
 // - move screen into separate file
@@ -45,6 +116,24 @@ class Person(Actor):
         screen.draw_at("@", int(self.x), int(self.y))
 */
 
+
+
+/*
+Replicate Env/Actor setup from python/pytorch petting zoo
+env.reset()
+for agent in env.agent_iter():
+    observation, reward, termination, truncation, info = env.last()
+    action = None if termination or truncation else env.action_space(agent).sample()  # this is where you would insert your policy
+    env.step(action)
+
+Though actually it would probably be more like this:
+env.reset()
+for agent in env.agents:
+    prev_reward = env.prev_reward(agent)
+    observation = env.observation(agent)
+    action = env.action_space(agent).sample()  # or some policy
+    env.step(action)
+*/
 
 
 // screen for now will be drawn in a terminal window with ascii characters
@@ -106,11 +195,80 @@ impl TTYScreen {
 }
 
 
+// trait Space<T> {
+//     fn is_in_bounds(&self, coords: T) -> bool;
+// }
+
+
+// // simple 2D plane world
+// struct PlaneSpace {
+//     width: u32,
+//     height: u32,
+// }
+// impl Space<(f64, f64)> for PlaneSpace {
+//     fn is_in_bounds(&self, coords: (f64, f64)) -> bool {
+//         coords.0 >= 0.0 && coords.0 < self.width as f64 && coords.1 >= 0.0 && coords.1 < self.height as f64
+//     }
+// }
+
+// struct Env {
+//     actors: Vec<Box<dyn Actor>>,
+//     space: dyn Space
+// }
+trait Env {}
+trait Actor {}
+trait Space {}
+
+
+// struct World<T> {
+//     actors: Vec<Box<dyn Entity>>,
+//     space: Space<T>,
+
+// }
+
+
+// trait Entity {
+//     fn draw(&self, screen: &mut TTYScreen);
+//     fn step(&mut self, world: &World);
+// }
+
+
+// struct Person {
+//     x: f64,
+//     y: f64,
+// }
+
+// impl Entity for Person {
+//     fn step(&mut self, world: &World) {
+//         //for now, just move in a random direction
+//         let normal = Normal::new(0.0, 1.0).unwrap();
+//         let dx = normal.sample(&mut rand::thread_rng());
+//         let dy = normal.sample(&mut rand::thread_rng());
+
+//         self.x += dx;
+//         self.y += dy;
+        
+//         //clamp to area
+//         self.x = clamp(self.x, 0.0, 80.0);
+//         self.y = clamp(self.y, 0.0, 80.0);
+//     }
+
+//     fn draw(&self, screen: &mut TTYScreen) {
+//         screen.draw_at(self.x as u32, self.y as u32, '@');
+//     }
+// }
+
+
+
+
+
 fn main()
 {
     const WIDTH: u32 = 80;
     const HEIGHT: u32 = 24;
-    const SLEEP_DURATION: Duration = Duration::from_millis(10); 
+    const TARGET_FRAME_RATE: u64 = 60; //frames per second
+    const TARGET_FRAME_DURATION: Duration = Duration::from_millis(1000 / TARGET_FRAME_RATE);
+
 
     let mut screen = TTYScreen::new(WIDTH, HEIGHT);
     
@@ -124,6 +282,8 @@ fn main()
 
     //game loop
     loop {
+        let frame_start = std::time::Instant::now();
+        
         //////// Clear the screen ////////
         screen.clear();
         
@@ -155,9 +315,14 @@ fn main()
 
 
 
-        //////// draw the screen, and sleep for a bit ////////
+        //////// draw the screen, and sleep for remainder of frame ////////
         screen.draw();
-        sleep(SLEEP_DURATION);
+        let current_frame_duration = std::time::Instant::now() - frame_start;
+        let sleep_duration = TARGET_FRAME_DURATION - current_frame_duration;
+        if sleep_duration > Duration::from_millis(0) {
+            sleep(sleep_duration);
+        }
+
     }
         
 }
