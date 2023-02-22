@@ -268,15 +268,58 @@ impl TTYScreen {
 
 
 
-
-trait Act<World> {
-    fn step(&mut self, world: &World);
+//actors queue actions, and then the world executes them all at once, with conflict resolution.
+enum Action {
+    Move(f64, f64),
+    None,
 }
+//action mask?
 
-struct PlaneWorld {
-    actors: Vec<Box<dyn Act<PlaneWorld>>>,
+struct World {
+    actors: Vec<Box<dyn Act>>,
     width: u32,
     height: u32,
+}
+
+trait Act {
+    fn act(&self, world: &World) -> Action;
+    fn resolve(&mut self, action: Action, world: &World);
+    fn draw(&self, display: &mut TTYScreen);
+}
+
+struct Person {
+    x: f64,
+    y: f64,
+}
+
+impl World {
+    fn new(width: u32, height: u32) -> World {
+        World {
+            actors: Vec::new(),
+            width: width,
+            height: height,
+        }
+    }
+
+    fn add_actor(&mut self, actor: Box<dyn Act>) {
+        self.actors.push(actor);
+    }
+
+    fn step(&mut self) {
+        //queue up all the actions
+        let mut actions = Vec::new();
+        for actor in &self.actors {
+            actions.push(actor.act(&self));
+        }
+
+        //resolve the actions
+        for (actor, action) in self.actors.iter_mut().zip(actions.iter()) {
+            //TODO: check here if action was successful, and if not, action is None
+            //for now just assume all actions are successful
+            // actor.resolve(*action, &self);
+        }
+    }
+
 }
 
 
