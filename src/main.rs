@@ -31,12 +31,20 @@ User stories:
 
 <trust>!!!!!! super big one . The evolution of trust: https://ncase.me/trust/
 
+<coercion>
+
+<cost benefit analysis. opportunity cost>
 
 
 - kingdom A wants to trade its wheat for kingdom B's meat
-   -> kingdoms need to direct individuals to collect/pool the resources
-   -> kingdoms then need to direct individuals to transport the resources to the other kingdom
-   -> kingdoms then need to verify that the trade occurred successfully
+    -> kingdoms need to direct individuals to collect/pool the resources
+    -> kingdoms then need to direct individuals to transport the resources to the other kingdom
+    -> kingdoms then need to verify that the trade occurred successfully
+
+- kingdom A decides to invade kingdom B to prevent them from becoming too powerful
+    -> some way for leaders to measure the power/trajectory of other kingdoms
+    -> cost benefit analysis
+    -> TBD
 
 
 breakdown of the interface:
@@ -215,9 +223,9 @@ impl TTYScreen {
 //     actors: Vec<Box<dyn Actor>>,
 //     space: dyn Space
 // }
-trait Env {}
-trait Actor {}
-trait Space {}
+// trait Env {}
+// trait Actor {}
+// trait Space {}
 
 
 // struct World<T> {
@@ -258,6 +266,18 @@ trait Space {}
 //     }
 // }
 
+
+
+
+trait Act<World> {
+    fn step(&mut self, world: &World);
+}
+
+struct PlaneWorld {
+    actors: Vec<Box<dyn Act<PlaneWorld>>>,
+    width: u32,
+    height: u32,
+}
 
 
 
