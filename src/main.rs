@@ -1,5 +1,7 @@
-use rand_distr::{Normal, Distribution, num_traits::clamp};
-use std::{io::{self, Write}, thread::sleep, time::Duration};
+use std::{io::{self, Write}, thread::sleep, time::Duration, iter::zip};
+use rand_distr::{Normal, Distribution};
+use once_cell::sync::Lazy;
+use enum_dispatch::enum_dispatch;
 
 
 /*
@@ -77,11 +79,6 @@ World:
 */
 
 
-
-
-
-
-
 // TODO:
 // - move screen into separate file
 // - convert things like randn and sleep into closures/functions that are easier to call
@@ -144,6 +141,11 @@ for agent in env.agents:
 */
 
 
+static NORMAL_DIST: Lazy<Normal<f64>> = Lazy::new(||Normal::new(0.0, 1.0).unwrap());
+fn randn() -> f64 {
+    NORMAL_DIST.sample(&mut rand::thread_rng())
+}
+
 // screen for now will be drawn in a terminal window with ascii characters
 struct TTYScreen {
     width: u32,
@@ -203,93 +205,68 @@ impl TTYScreen {
 }
 
 
-// trait Space<T> {
-//     fn is_in_bounds(&self, coords: T) -> bool;
-// }
 
 
-// // simple 2D plane world
-// struct PlaneSpace {
-//     width: u32,
-//     height: u32,
-// }
-// impl Space<(f64, f64)> for PlaneSpace {
-//     fn is_in_bounds(&self, coords: (f64, f64)) -> bool {
-//         coords.0 >= 0.0 && coords.0 < self.width as f64 && coords.1 >= 0.0 && coords.1 < self.height as f64
-//     }
-// }
-
-// struct Env {
-//     actors: Vec<Box<dyn Actor>>,
-//     space: dyn Space
-// }
-// trait Env {}
-// trait Actor {}
+// env spaces. e.g. from petting zoo, the dimensionality of the action and observation spaces are known
 // trait Space {}
-
-
-// struct World<T> {
+// struct World {
 //     actors: Vec<Box<dyn Entity>>,
-//     space: Space<T>,
-
+//     space: Space,
 // }
-
-
-// trait Entity {
-//     fn draw(&self, screen: &mut TTYScreen);
-//     fn step(&mut self, world: &World);
-// }
-
-
-// struct Person {
-//     x: f64,
-//     y: f64,
-// }
-
-// impl Entity for Person {
-//     fn step(&mut self, world: &World) {
-//         //for now, just move in a random direction
-//         let normal = Normal::new(0.0, 1.0).unwrap();
-//         let dx = normal.sample(&mut rand::thread_rng());
-//         let dy = normal.sample(&mut rand::thread_rng());
-
-//         self.x += dx;
-//         self.y += dy;
-        
-//         //clamp to area
-//         self.x = clamp(self.x, 0.0, 80.0);
-//         self.y = clamp(self.y, 0.0, 80.0);
-//     }
-
-//     fn draw(&self, screen: &mut TTYScreen) {
-//         screen.draw_at(self.x as u32, self.y as u32, '@');
-//     }
-// }
-
-
 
 //actors queue actions, and then the world executes them all at once, with conflict resolution.
-enum Action {
-    Move(f64, f64),
-    None,
-}
+// enum Action {
+//     Move(f64, f64),
+//     None,
+// }
 //action mask?
 
+
+// trait Act {
+//     fn act(&self, world: &World) -> Action;
+//     fn resolve(&mut self, action: Action, world: &World);
+//     fn draw(&self, display: &mut TTYScreen);
+// }
+
+
+
+#[enum_dispatch]
+trait Act {
+    fn act(&self, world: &World) -> Option<Action>; //TODO: mask for actions that are available vs not for the agent
+}
+
+struct Person {
+    //TODO
+}
+impl Act for Person {
+    fn act(&self, _world: &World) -> Option<Action> {
+        //for now, just move in a random direction
+        let dx = randn();
+        let dy = randn();
+
+        Some(Action::Move(dx, dy))
+    }
+}
+//TODO: other types of agents
+
+#[enum_dispatch(Act)]
+enum Actor {
+    Person
+}
+
+struct Coord {
+    x: f64,
+    y: f64,
+}
 struct World {
-    actors: Vec<Box<dyn Act>>,
+    actors: Vec<(Actor, Coord)>,
     width: u32,
     height: u32,
 }
 
-trait Act {
-    fn act(&self, world: &World) -> Action;
-    fn resolve(&mut self, action: Action, world: &World);
-    fn draw(&self, display: &mut TTYScreen);
-}
-
-struct Person {
-    x: f64,
-    y: f64,
+enum Action
+{
+    Move(f64, f64),
 }
 
 impl World {
@@ -301,71 +278,50 @@ impl World {
         }
     }
 
-    fn add_actor(&mut self, actor: Box<dyn Act>) {
-        self.actors.push(actor);
+    fn add_actor(&mut self, actor: Actor, coord: Coord) {
+        self.actors.push((actor, coord));
     }
 
     fn step(&mut self) {
-        //queue up all the actions
+        // collect attempted actions from all actors
         let mut actions = Vec::new();
-        for actor in &self.actors {
-            actions.push(actor.act(&self));
+        for (actor, coord) in &self.actors {
+            actions.push((actor.act(self), coord));
         }
 
-        //resolve the actions
-        for (actor, action) in self.actors.iter_mut().zip(actions.iter()) {
-            //TODO: check here if action was successful, and if not, action is None
-            //for now just assume all actions are successful
-            // actor.resolve(*action, &self);
+        // resolve conflicts in actions. For now just check that the move action is in bounds
+        let mut resolved_actions = Vec::new();
+        for ((action, coord), actor_idx) in zip(actions, 0..self.actors.len()) {
+            if let Some(action) = action {
+                match action {
+                    Action::Move(dx, dy) => {
+                        let new_x = coord.x + dx;
+                        let new_y = coord.y + dy;
+                        if new_x >= 1.0 && new_x <= self.width as f64 - 2.0 && new_y >= 1.0 && new_y < self.height as f64 - 2.0 {
+                            resolved_actions.push((action, actor_idx));
+                        }
+                    },
+
+                    //TODO: other actions
+                }
+            }
+        }
+
+        // execute resolved actions
+        for (action, actor_idx) in resolved_actions {
+            match action {
+                Action::Move(dx, dy) => {
+                    let coord = &mut self.actors[actor_idx].1;
+                    coord.x += dx;
+                    coord.y += dy;
+                },
+            }
         }
     }
 
-}
-
-
-
-
-fn main()
-{
-    const WIDTH: u32 = 80;
-    const HEIGHT: u32 = 24;
-    const TARGET_FRAME_RATE: u64 = 60; //frames per second
-    const TARGET_FRAME_DURATION: Duration = Duration::from_millis(1000 / TARGET_FRAME_RATE);
-
-
-    let mut screen = TTYScreen::new(WIDTH, HEIGHT);
-    
-    //coordinates of X character
-    let mut x:f64 = WIDTH as f64 / 2.0;
-    let mut y:f64 = HEIGHT as f64 / 2.0;
-    println!("x: {}, y: {}", x, y);
-
-    //random number generator
-    let normal = Normal::new(0.0, 1.0).unwrap();
-
-    //game loop
-    loop {
-        let frame_start = std::time::Instant::now();
-        
-        //////// Clear the screen ////////
+    fn draw(&self, screen: &mut TTYScreen) {
         screen.clear();
-        
 
-        //////// World updates go here ////////
-
-        //move the x by a random amount
-        x += normal.sample(&mut rand::thread_rng());
-        y += normal.sample(&mut rand::thread_rng());
-        
-        //clamp x and y into screen bounds
-        x = clamp(x, 1.0, WIDTH as f64 - 2.0);
-        y = clamp(y, 1.0, HEIGHT as f64 - 2.0);
-        
-        //draw the x at the current position (converted to integer)
-        screen.draw_at(x as u32, y as u32, 'X');
-        
-
-        
         //////// Border around the screen ////////        
         for x in 0..screen.width {
             screen.draw_at(x, 0, '0');
@@ -377,15 +333,57 @@ fn main()
         }
 
 
-
-        //////// draw the screen, and sleep for remainder of frame ////////
+        for (actor, coord) in &self.actors {
+            match actor {
+                Actor::Person(_) => {
+                    screen.draw_at(coord.x as u32, coord.y as u32, 'X');
+                },
+            }
+        }
         screen.draw();
+    }
+}
+
+
+fn main() {
+    // constants
+    const WIDTH: u32 = 80;
+    const HEIGHT: u32 = 24;
+    const TARGET_FRAME_RATE: u64 = 60; //frames per second
+    const TARGET_FRAME_DURATION: Duration = Duration::from_millis(1000 / TARGET_FRAME_RATE);
+
+    // create the screen and world
+    let mut screen = TTYScreen::new(WIDTH, HEIGHT);
+    let mut world = World::new(WIDTH, HEIGHT);
+    
+    // add some actors
+    for _ in 0..100 {
+        world.add_actor(Actor::Person(Person {}), Coord { x: 40.0, y: 12.0 });
+    }
+
+    // game loop
+    loop {
+        // get the time at the start of the frame
+        let frame_start = std::time::Instant::now();
+
+        // update the world
+        world.step();
+
+        // draw the world
+        screen.clear();
+        world.draw(&mut screen);
+
+        // sleep until the target frame rate is reached
         let current_frame_duration = std::time::Instant::now() - frame_start;
         let sleep_duration = TARGET_FRAME_DURATION - current_frame_duration;
         if sleep_duration > Duration::from_millis(0) {
             sleep(sleep_duration);
         }
-
     }
-        
 }
+
+
+
+
+
+
