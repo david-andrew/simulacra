@@ -12,6 +12,8 @@ My other goal for this project is to build experience in rust.
 $ cargo run
 ```
 
+![demo](assets/demo.gif)
+
 ## Simulation Features
 - [ ] world
     - [x] real-vector position in finite a 2D plane
