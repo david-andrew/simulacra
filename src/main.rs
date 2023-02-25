@@ -1,7 +1,25 @@
-use std::{io::{self, Write}, thread::sleep, time::Duration, iter::zip};
+use std::{thread::sleep, time::Duration, iter::zip};
 use rand_distr::{Normal, Distribution};
 use once_cell::sync::Lazy;
 use enum_dispatch::enum_dispatch;
+mod screen;
+use screen::TTYScreen;
+// use screen::TTYScreen;
+// use screen::TTYScreen;
+
+
+/*
+[TASKS]
+- break into separate files
+- decide on time scale for each step (probably make configurable)
+- start introducing requirements for humans to survive (air, water, food, temperature, etc): https://pressbooks-dev.oer.hawaii.edu/anatomyandphysiology/chapter/requirements-for-human-life/
+    -> along with the corresponding ways for the agent to satisfy those requirements
+    1. air. death in 10 minutes. satisfied by environment having air (or eventually outfits that modify the immediate environment for the agent, e.g. a space suit)
+        -> tbd on effects when the requirements are not satisfied. e.g. for air, within the 10 minutes before they die, they probably should function less...
+    2. water. death in 3 days. satisfied by environment having water sources the agent can go to and drink from
+    ...
+- start developing AI for agents so that they can recognize their needs and work to satisfy them. GOAP?
+*/
 
 
 /*
@@ -20,6 +38,10 @@ User stories:
 - character A is tending sheep, and must protect them from wolves
     -> sheep are animal agents
     -> wolves are animal agents
+
+- character A was injured in battle, and lost their arm
+    -> representing limbs on characters
+    -> varying degrees of injury
 
 <stealing>
 
@@ -141,69 +163,17 @@ for agent in env.agents:
 */
 
 
+
+/*
+[random thoughts]
+- path finding algorithms that can precompute all paths (floyd-warshall), but then we can mask part of the graph and quickly find the shortest path on the masked graph
+*/
+
+
 static NORMAL_DIST: Lazy<Normal<f64>> = Lazy::new(||Normal::new(0.0, 1.0).unwrap());
 fn randn() -> f64 {
     NORMAL_DIST.sample(&mut rand::thread_rng())
 }
-
-// screen for now will be drawn in a terminal window with ascii characters
-struct TTYScreen {
-    width: u32,
-    height: u32,
-    data: Vec<char>,
-}
-
-impl TTYScreen {
-    fn new(width: u32, height: u32) -> TTYScreen {
-        
-        //create the data vector
-        let mut data = Vec::new();
-        for _ in 0..width * height {
-            data.push(' ');
-        }
-        
-        //predraw the space for the screen, then return to the top left
-        for _ in 0..height-1 {
-            println!("")
-        }
-        print!("\x1b[0;0H");
-        
-        //return a new TTYScreen
-        TTYScreen {
-            width: width,
-            height: height,
-            data: data,
-        }
-    }
-
-    fn draw_at(&mut self, x: u32, y: u32, c: char) {
-        self.data[(y * self.width + x) as usize] = c;
-    }
-
-    fn clear(&mut self) {
-        for i in 0..self.width * self.height {
-            self.data[i as usize] = ' ';
-        }
-    }
-
-    fn draw(&self) {
-        //first move the cursor to the top left
-        print!("\x1b[0;0H");
-
-        for y in 0..self.height {
-            for x in 0..self.width {
-                print!("{}", self.data[(y * self.width + x) as usize]);
-            }
-            if y < self.height - 1 {
-                println!("");
-            }
-        }
-        //flush the output
-        io::stdout().flush().unwrap();
-
-    }
-}
-
 
 
 
@@ -297,7 +267,7 @@ impl World {
                     Action::Move(dx, dy) => {
                         let new_x = coord.x + dx;
                         let new_y = coord.y + dy;
-                        if new_x >= 1.0 && new_x <= self.width as f64 - 2.0 && new_y >= 1.0 && new_y < self.height as f64 - 2.0 {
+                        if new_x >= 1.0 && new_x <= self.width as f64 - 1.0 && new_y >= 1.0 && new_y <= self.height as f64 - 1.0 {
                             resolved_actions.push((action, actor_idx));
                         }
                     },
@@ -344,6 +314,12 @@ impl World {
     }
 }
 
+fn stabilize_framerate(frame_start: std::time::Instant, target_frame_duration: Duration) {
+    let frame_duration = frame_start.elapsed();
+    if frame_duration < target_frame_duration {
+        sleep(target_frame_duration - frame_duration);
+    }
+}
 
 fn main() {
     // constants
@@ -357,7 +333,7 @@ fn main() {
     let mut world = World::new(WIDTH, HEIGHT);
     
     // add some actors
-    for _ in 0..100 {
+    for _ in 0..10 {
         world.add_actor(Actor::Person(Person {}), Coord { x: 40.0, y: 12.0 });
     }
 
@@ -374,10 +350,6 @@ fn main() {
         world.draw(&mut screen);
 
         // sleep until the target frame rate is reached
-        let current_frame_duration = std::time::Instant::now() - frame_start;
-        let sleep_duration = TARGET_FRAME_DURATION - current_frame_duration;
-        if sleep_duration > Duration::from_millis(0) {
-            sleep(sleep_duration);
-        }
+        stabilize_framerate(frame_start, TARGET_FRAME_DURATION);
     }
 }
