@@ -10,6 +10,8 @@ mod simulacra; use simulacra::{World, Actor, Coord, Person};
 [TASKS]
 - break into separate files
 - decide on time scale for each step (probably make configurable)
+    -> time acceleration vs game time between each step
+- 
 - start introducing requirements for humans to survive (air, water, food, temperature, etc): https://pressbooks-dev.oer.hawaii.edu/anatomyandphysiology/chapter/requirements-for-human-life/
     -> along with the corresponding ways for the agent to satisfy those requirements
     1. air. death in 10 minutes. satisfied by environment having air (or eventually outfits that modify the immediate environment for the agent, e.g. a space suit)

@@ -4,6 +4,29 @@ use enum_dispatch::enum_dispatch;
 use crate::utils::randn;
 use crate::screen::TTYScreen;
 
+
+
+/*
+person system:
+- lungs:
+    - take in air
+    - extract oxygen
+    - replace with carbon dioxide
+    - oxygenate blood with extracted oxygen
+    - require energy
+- blood:
+    - transports oxygen and nutrients to cells
+    - transports carbon dioxide and waste away from cells
+- heart:
+    - link blood to all other organs
+    - requires energy
+- brain:
+    - 
+*/
+
+
+
+
 /*
 User stories:
 - character A is hungry, so they pick a fruit from a tree and eat it
@@ -51,6 +74,17 @@ User stories:
     -> some way for leaders to measure the power/trajectory of other kingdoms
     -> cost benefit analysis
     -> TBD
+
+
+
+[Agent planning]
+- agents will use some form of planning to decide what to do
+    -> probably GOAP, maybe mixed with some form of neural net (maybe evolution trained)
+-> characters can break up GOAP planning over multiple frames! since thinking takes time, they just sit there and think. fixes performance bottleneck too!
+
+
+
+
 
 
 breakdown of the interface:
