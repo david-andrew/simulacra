@@ -1,29 +1,8 @@
-use std::iter::zip;
+use std::{iter::zip, collections::{HashMap, HashSet}};
 use enum_dispatch::enum_dispatch;
 
 use crate::utils::randn;
 use crate::screen::TTYScreen;
-
-
-
-/*
-person system:
-- lungs:
-    - take in air
-    - extract oxygen
-    - replace with carbon dioxide
-    - oxygenate blood with extracted oxygen
-    - require energy
-- blood:
-    - transports oxygen and nutrients to cells
-    - transports carbon dioxide and waste away from cells
-- heart:
-    - link blood to all other organs
-    - requires energy
-- brain:
-    - 
-*/
-
 
 
 
@@ -208,6 +187,26 @@ trait Act {
     fn act(&self, world: &World) -> Option<Action>; //TODO: mask for actions that are available vs not for the agent
 }
 
+
+
+
+/*
+person system:
+- lungs:
+    - take in air
+    - extract oxygen
+    - replace with carbon dioxide
+    - oxygenate blood with extracted oxygen
+    - require energy
+- blood:
+    - transports oxygen and nutrients to cells
+    - transports carbon dioxide and waste away from cells
+- heart:
+    - link blood to all other organs
+    - requires energy
+- brain:
+    - 
+*/
 pub struct Person {
     //TODO
 }
@@ -222,19 +221,70 @@ impl Act for Person {
 }
 //TODO: other types of agents
 
+pub struct Lungs {
+    //consumes: surrounding atmosphere, energy, un-oxygenated blood
+    //produces: oxygenated blood
+    // health: f64,
+    // parent: &Actor,
+}
+
+impl Act for Lungs {
+    fn act(&self, _world: &World) -> Option<Action> {
+        None
+    }
+}
+struct Heart {}
+
+
+struct Brain {
+    //allows an agent to make plans. thinking speed + max size of plans is based on the free size of the brain
+    //consumes: energy + oxygen (from blood)
+    //produces: GOAP actions
+    //links: Vec<Actor>,
+    //free_size: f64 //amount of brain that is not needed for controlling body functions
+}
+struct Stomach {
+    // convert food into energy
+}
+struct Eyes {}
+
+
+
+
+
+
+
+
+
 #[enum_dispatch(Act)]
 pub enum Actor {
-    Person
+    Person,
+    Lungs,
+    //Heart,
+    //Brain,
+    //Eyes,
+    //Stomach,
 }
 
 pub struct Coord {
     pub x: f64,
     pub y: f64,
 }
+type ID = u32;
 pub struct World {
-    actors: Vec<(Actor, Coord)>,
+    live_ids: HashSet<ID>,
+    coordinates: HashMap<ID, Coord>,
+    actors: Vec<(ID, Actor)>,
     width: u32,
     height: u32,
+
+    //live_ids: 
+    //coordmap
+    //inside of graph (e.g. organs inside a person). These objects share coordinates with the parent
+    //    -> outside of graph (e.g. jacket on a person). These objects share coordinates with the parent
+    //    -> possibly have just a single "subordinate" graph for objects that share coordinates with the parent
+    //physically connected graph (e.g. lungs connected to heart)
+    //other graphs. e.g. relationships, etc.
 }
 
 enum Action
@@ -246,32 +296,46 @@ impl World {
     pub fn new(width: u32, height: u32) -> World {
         World {
             actors: Vec::new(),
+            live_ids: HashSet::new(),
+            coordinates: HashMap::new(),
             width: width,
             height: height,
         }
     }
 
-    pub fn add_actor(&mut self, actor: Actor, coord: Coord) {
-        self.actors.push((actor, coord));
+    pub fn add_actor(&mut self, actor: Actor, coord: Option<Coord>) {
+        let id = self.live_ids.len() as ID;
+        self.actors.push((id, actor));
+        self.live_ids.insert(id);
+        if let Some(coord) = coord {
+            self.coordinates.insert(id, coord);
+        }
     }
 
     pub fn step(&mut self) {
         // collect attempted actions from all actors
-        let mut actions = Vec::new();
-        for (actor, coord) in &self.actors {
-            actions.push((actor.act(self), coord));
+        let mut actions: Vec<(&ID, Option<Action>)> = Vec::new();
+        for (id, actor) in &self.actors {
+            actions.push((id, actor.act(self)));
+            // let coord = self.coordinates.get(id);
+            // if let Some(coord) = coord {
+            //     actions.push((id, actor.act(self)));
+            // }
         }
 
         // resolve conflicts in actions. For now just check that the move action is in bounds
-        let mut resolved_actions = Vec::new();
-        for ((action, coord), actor_idx) in zip(actions, 0..self.actors.len()) {
+        let mut resolved_actions: Vec<(&ID, Action)> = Vec::new();
+        for (id, action) in actions {
             if let Some(action) = action {
                 match action {
                     Action::Move(dx, dy) => {
-                        let new_x = coord.x + dx;
-                        let new_y = coord.y + dy;
-                        if new_x >= 1.0 && new_x <= self.width as f64 - 1.0 && new_y >= 1.0 && new_y <= self.height as f64 - 1.0 {
-                            resolved_actions.push((action, actor_idx));
+                        let coord = self.coordinates.get(id);
+                        if let Some(coord) = coord {
+                            let new_x = coord.x + dx;
+                            let new_y = coord.y + dy;
+                            if new_x >= 1.0 && new_x <= self.width as f64 - 1.0 && new_y >= 1.0 && new_y <= self.height as f64 - 1.0 {
+                                resolved_actions.push((id, action));
+                            }
                         }
                     },
 
@@ -281,12 +345,15 @@ impl World {
         }
 
         // execute resolved actions
-        for (action, actor_idx) in resolved_actions {
+        for (id, action) in resolved_actions {
             match action {
                 Action::Move(dx, dy) => {
-                    let coord = &mut self.actors[actor_idx].1;
-                    coord.x += dx;
-                    coord.y += dy;
+                    // let coord = //&mut self.actors[id].1;
+                    let coord = self.coordinates.get_mut(id);
+                    if let Some(coord) = coord {
+                        coord.x += dx;
+                        coord.y += dy;
+                    }
                 },
             }
         }
@@ -306,11 +373,15 @@ impl World {
         }
 
 
-        for (actor, coord) in &self.actors {
+        for (id, actor) in &self.actors {
             match actor {
                 Actor::Person(_) => {
-                    screen.draw_at(coord.x as u32, coord.y as u32, 'X');
+                    let coord = self.coordinates.get(id);
+                    if let Some(coord) = coord {
+                        screen.draw_at(coord.x as u32, coord.y as u32, 'X');
+                    }
                 },
+                _ => {},
             }
         }
         screen.draw();

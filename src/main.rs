@@ -48,7 +48,7 @@ fn main() {
     
     // add some actors
     for _ in 0..10 {
-        world.add_actor(Actor::Person(Person {}), Coord { x: 40.0, y: 12.0 });
+        world.add_actor(Actor::Person(Person {}), Some(Coord { x: 40.0, y: 12.0 }));
     }
 
     // game loop
