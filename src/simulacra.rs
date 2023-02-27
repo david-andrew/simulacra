@@ -110,33 +110,6 @@ World:
 //       - agent health/injuries/etc. 
 //          -> for injuries, maybe have a human armature that models the workspace the agent can reach, and update that based on injuries
 
-// recreate actor class from python version
-/*
-class Actor(ABC):
-    @abstractmethod
-    def step(self): ...
-    def render(self, screen:Screen): ... #TBD what how this works...
-
-class Person(Actor):
-    def __init__(self):
-        self.x = 10
-        self.y = 10
-
-    def step(self):
-        #for now, just move in a random direction
-        dx = np.random.randn()
-        dy = np.random.randn()
-
-        self.x += dx
-        self.y += dy
-        
-        #clamp to area
-        self.x = np.clip(self.x, 0, 80)
-        self.y = np.clip(self.y, 0, 80)
-
-    def render(self, screen:Screen):
-        screen.draw_at("@", int(self.x), int(self.y))
-*/
 
 
 
