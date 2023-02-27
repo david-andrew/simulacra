@@ -4,7 +4,7 @@ mod screen;
 use screen::TTYScreen;
 
 mod utils; use utils::stabilize_framerate;
-mod simulacra; use simulacra::{World, Actor, Coord, Person};
+mod simulacra; use simulacra::{World, Actor, Coord, Person, BuildActor};
 
 /*
 [TASKS]
@@ -40,7 +40,8 @@ fn main() {
     const WIDTH: u32 = 80;
     const HEIGHT: u32 = 24;
     const TARGET_FRAME_RATE: u64 = 60; //frames per second
-    const TARGET_FRAME_DURATION: Duration = Duration::from_millis(1000 / TARGET_FRAME_RATE);
+    const TARGET_FRAME_DURATION: Duration = Duration::from_micros(1_000_000 / TARGET_FRAME_RATE);
+    const TIME_STEP_RATIO: u64 = 60; //how many times faster the simulation is than the real world
 
     // create the screen and world
     let mut screen = TTYScreen::new(WIDTH, HEIGHT);
@@ -48,7 +49,11 @@ fn main() {
     
     // add some actors
     for _ in 0..10 {
-        world.add_actor(Actor::Person(Person {}), Some(Coord { x: 40.0, y: 12.0 }));
+        world.add_actor(
+            BuildActor::new(Person::default_actor())
+                .coord(Coord { x: 40.0, y: 12.0 })
+                .has_agency()
+        );
     }
 
     // game loop

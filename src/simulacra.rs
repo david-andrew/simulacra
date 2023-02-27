@@ -1,4 +1,4 @@
-use std::{iter::zip, collections::{HashMap, HashSet}};
+use std::{collections::{HashMap, HashSet}};
 use enum_dispatch::enum_dispatch;
 
 use crate::utils::randn;
@@ -184,7 +184,7 @@ for agent in env.agents:
 
 #[enum_dispatch]
 trait Act {
-    fn act(&self, world: &World) -> Option<Action>; //TODO: mask for actions that are available vs not for the agent
+    fn act(&self, world: &World) -> Action; //TODO: mask for actions that are available vs not for the agent
 }
 
 
@@ -211,12 +211,18 @@ pub struct Person {
     //TODO
 }
 impl Act for Person {
-    fn act(&self, _world: &World) -> Option<Action> {
+    fn act(&self, _world: &World) -> Action {
         //for now, just move in a random direction
         let dx = randn();
         let dy = randn();
 
-        Some(Action::Move(dx, dy))
+        Action::Move(Move{dx, dy})
+    }
+    
+}
+impl Person {
+    pub fn default_actor() -> Actor {
+        Actor::Person(Person{})
     }
 }
 //TODO: other types of agents
@@ -229,8 +235,17 @@ pub struct Lungs {
 }
 
 impl Act for Lungs {
-    fn act(&self, _world: &World) -> Option<Action> {
-        None
+    fn act(&self, _world: &World) -> Action {
+        Action::None
+    }
+}
+
+struct Blood {
+    //bus for transporting oxygen, carbon dioxide, nutrients, waste
+}
+impl Act for Blood {
+    fn act(&self, _world: &World) -> Action {
+        Action::None
     }
 }
 struct Heart {}
@@ -242,6 +257,12 @@ struct Brain {
     //produces: GOAP actions
     //links: Vec<Actor>,
     //free_size: f64 //amount of brain that is not needed for controlling body functions
+
+    //brain could be mirrored for left vs right handedness
+    //also there could be other odd brain layouts, e.g. for people with autism (smart but not social)
+    //  re: brain layouts, probably have a more explicit specification that is allocation based, that would play into personality traits
+
+    // potentially split brain into a higher and lower brain? e.g. one for pure instinct based survival and then more advanced for planning
 }
 struct Stomach {
     // convert food into energy
@@ -253,18 +274,42 @@ struct Eyes {}
 
 
 
-
+pub struct BuildActor {
+    actor: Actor,
+    coord: Option<Coord>,
+    has_agency: Option<()>,
+    //TODO: other parameters set when adding an actor to the world
+}
+impl BuildActor {
+    pub fn new(actor: Actor) -> Self {
+        Self {
+            actor,
+            coord: None,
+            has_agency: None,
+        }
+    }
+    pub fn coord(mut self, coord: Coord) -> Self {
+        self.coord = Some(coord);
+        self
+    }
+    pub fn has_agency(mut self) -> Self {
+        self.has_agency = Some(());
+        self
+    }
+}
 
 
 #[enum_dispatch(Act)]
 pub enum Actor {
     Person,
     Lungs,
+    Blood,
     //Heart,
     //Brain,
     //Eyes,
     //Stomach,
 }
+
 
 pub struct Coord {
     pub x: f64,
@@ -272,11 +317,18 @@ pub struct Coord {
 }
 type ID = u32;
 pub struct World {
-    live_ids: HashSet<ID>,
+    cur_id: ID,
+    // live_ids: HashSet<ID>,
+    agency: HashSet<ID>,               //used for several things. for now, no agency means other agents can trade without needing mirrored trades
     coordinates: HashMap<ID, Coord>,
     actors: Vec<(ID, Actor)>,
     width: u32,
     height: u32,
+    
+    
+    // [Connection Graphs]
+    //  - possessions. e.g. blood possesses oxygen, person possesses jacket, etc. but perhaps this should be split into active and passive, e.g. a person couldn't trade their lungs with someone, but they could trade their jacket, even though they possess both
+    //  - touching... tbd. trying to handle how a person would breath air in from the atmosphere
 
     //live_ids: 
     //coordmap
@@ -289,65 +341,89 @@ pub struct World {
 
 enum Action
 {
-    Move(f64, f64),
+    None,
+    Move(Move),
+    Trade(Trade), // --> succeeds only if a mirrored trade is being made by the target agent
+}
+struct Move {
+    dx: f64,
+    dy: f64,
+}
+struct Trade {
+    target_id: ID,
+    give_id: ID,
+    receive_id: ID,
 }
 
 impl World {
     pub fn new(width: u32, height: u32) -> World {
         World {
+            cur_id: 0,
             actors: Vec::new(),
-            live_ids: HashSet::new(),
+            // alive: HashSet::new(),
+            agency: HashSet::new(),
             coordinates: HashMap::new(),
             width: width,
             height: height,
         }
     }
 
-    pub fn add_actor(&mut self, actor: Actor, coord: Option<Coord>) {
-        let id = self.live_ids.len() as ID;
-        self.actors.push((id, actor));
-        self.live_ids.insert(id);
-        if let Some(coord) = coord {
+    // set up a builder pattern for adding actors to the world.
+    pub fn add_actor(&mut self, new_actor: BuildActor) {
+        let id = self.cur_id;
+        self.actors.push((id, new_actor.actor));
+        
+        if let Some(coord) = new_actor.coord {
             self.coordinates.insert(id, coord);
         }
+        
+        if let Some(_) = new_actor.has_agency {
+            self.agency.insert(id);
+        }
+        
+        self.cur_id += 1;
     }
 
     pub fn step(&mut self) {
         // collect attempted actions from all actors
-        let mut actions: Vec<(&ID, Option<Action>)> = Vec::new();
-        for (id, actor) in &self.actors {
-            actions.push((id, actor.act(self)));
-            // let coord = self.coordinates.get(id);
-            // if let Some(coord) = coord {
-            //     actions.push((id, actor.act(self)));
-            // }
-        }
-
+        let actions: HashMap<&ID, Action> = self.actors
+            .iter()
+            .map(|(id, actor)| (id, actor.act(self)))
+            .collect();
+            
+        
         // resolve conflicts in actions. For now just check that the move action is in bounds
-        let mut resolved_actions: Vec<(&ID, Action)> = Vec::new();
-        for (id, action) in actions {
-            if let Some(action) = action {
-                match action {
-                    Action::Move(dx, dy) => {
-                        let coord = self.coordinates.get(id);
-                        if let Some(coord) = coord {
-                            let new_x = coord.x + dx;
-                            let new_y = coord.y + dy;
-                            if new_x >= 1.0 && new_x <= self.width as f64 - 1.0 && new_y >= 1.0 && new_y <= self.height as f64 - 1.0 {
-                                resolved_actions.push((id, action));
-                            }
+        let mut resolved_actions: Vec<(&ID, &Action)> = Vec::new();
+        for (id, action) in &actions {
+            match action {
+                Action::Move(Move{dx, dy}) => {
+                    let coord = self.coordinates.get(id);
+                    if let Some(coord) = coord {
+                        let new_x = coord.x + dx;
+                        let new_y = coord.y + dy;
+                        if new_x >= 1.0 && new_x <= self.width as f64 - 1.0 && new_y >= 1.0 && new_y <= self.height as f64 - 1.0 {
+                            resolved_actions.push((id, action));
                         }
-                    },
-
-                    //TODO: other actions
+                    }
+                },
+                Action::Trade(a) => {
+                    //check if the target agent also has a mirrored trade action
+                    if let Some(Action::Trade(b)) = actions.get(&a.target_id) {
+                        if a.give_id == b.receive_id && a.receive_id == b.give_id && b.target_id == **id {
+                            resolved_actions.push((id, action));
+                        }
+                    }
                 }
+                
+                //TODO: other actions
+                Action::None => {}
             }
         }
 
         // execute resolved actions
         for (id, action) in resolved_actions {
             match action {
-                Action::Move(dx, dy) => {
+                Action::Move(Move{dx, dy}) => {
                     // let coord = //&mut self.actors[id].1;
                     let coord = self.coordinates.get_mut(id);
                     if let Some(coord) = coord {
@@ -355,6 +431,11 @@ impl World {
                         coord.y += dy;
                     }
                 },
+                Action::Trade(Trade{target_id, give_id, receive_id}) => {
+                    //TODO
+                }
+
+                Action::None => {}
             }
         }
     }
