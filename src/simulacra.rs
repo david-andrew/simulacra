@@ -7,6 +7,16 @@ use crate::screen::TTYScreen;
 
 
 /*
+[Open questions]
+- how to handle partitioning things. E.g. the atmosphere has <many> units of oxygen, but a person's lungs makes a trade only for a small amount of it. so the atmosphere needs to be split into 2 parts... perhaps that could be a feature of the trade...
+
+[Tasks]
+- set up a simple trading network between the atmosphere (Co2+O2), lungs, blood, and heart
+- expand trading network to include stomach, brain, etc
+*/
+
+
+/*
 User stories:
 - character A is hungry, so they pick a fruit from a tree and eat it
     -> plants that grow and produce fruit
@@ -164,6 +174,7 @@ trait Act {
 
 
 /*
+See: https://pressbooks-dev.oer.hawaii.edu/anatomyandphysiology/chapter/requirements-for-human-life/
 person system:
 - lungs:
     - take in air
@@ -222,6 +233,26 @@ impl Act for Blood {
     }
 }
 struct Heart {}
+impl Act for Heart {
+    fn act(&self, _world: &World) -> Action {
+        Action::None
+    }
+}
+struct Oxygen {
+    volume: u64,
+}
+impl Act for Oxygen {
+    fn act(&self, _world: &World) -> Action {
+        Action::None
+    }
+}
+struct CarbonDioxide {}
+impl Act for CarbonDioxide {
+    fn act(&self, _world: &World) -> Action {
+        Action::None
+    }
+}
+
 
 
 struct Brain {
@@ -241,7 +272,7 @@ struct Stomach {
     // convert food into energy
 }
 struct Eyes {}
-
+struct Ears {}
 
 
 
@@ -277,7 +308,9 @@ pub enum Actor {
     Person,
     Lungs,
     Blood,
-    //Heart,
+    Heart,
+    Oxygen,
+    CarbonDioxide,
     //Brain,
     //Eyes,
     //Stomach,
@@ -323,9 +356,9 @@ struct Move {
     dy: f64,
 }
 struct Trade {
-    target_id: ID,
-    give_id: ID,
-    receive_id: ID,
+    target_id: ID,  //who owns/is holding the thing being traded
+    give_id: ID,    //TODO: have this be either a whole thing or some fraction of it...
+    receive_id: ID, //TODO: have this be either a whole thing or some fraction of it...
 }
 
 impl World {
@@ -380,6 +413,16 @@ impl World {
                     }
                 },
                 Action::Trade(a) => {
+                    //trade type depends on if the target agent has agency
+                    if self.agency.contains(&a.target_id) {
+                        //check if the target agent has a mirrored trade action. Also check that the target agent has the item being traded
+                        if let Some(Action::Trade(b)) = actions.get(&a.target_id) {
+                            //TODO: check that b has the item being traded
+                            if a.give_id == b.receive_id && a.receive_id == b.give_id && b.target_id == **id {
+                                resolved_actions.push((id, action));
+                            }
+                        }
+                    }
                     //check if the target agent also has a mirrored trade action
                     if let Some(Action::Trade(b)) = actions.get(&a.target_id) {
                         if a.give_id == b.receive_id && a.receive_id == b.give_id && b.target_id == **id {
